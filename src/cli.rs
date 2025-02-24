@@ -1,11 +1,11 @@
-use std::fs::metadata;
 use crate::TartarFS;
 use clap::Parser;
 use fuser::MountOption;
+use std::fs::metadata;
+use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tracing::info;
-use std::os::unix::fs::MetadataExt;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -48,7 +48,7 @@ pub fn run(args: Args) -> std::io::Result<()> {
                 info!("Mount session ended");
                 return Ok(());
             }
-            
+
             if !mount_path.exists() {
                 info!("Mount point no longer exists");
                 return Ok(());

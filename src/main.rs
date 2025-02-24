@@ -14,4 +14,3 @@ fn main() {
 
     tartarfs::cli::run(args).unwrap_or_else(|e| panic!("failed to mount: {}", e));
 }
-
