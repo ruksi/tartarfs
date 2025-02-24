@@ -1,16 +1,6 @@
 use clap::Parser;
-use fuser::MountOption;
-use std::path::Path;
-use tartarfs::TartarFS;
 use tracing::info;
-use tracing_subscriber::{EnvFilter, fmt};
-
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    archive_path: String,
-    mount_path: String,
-}
+use tracing_subscriber::{fmt, EnvFilter};
 
 fn main() {
     tracing_subscriber::fmt()
@@ -18,19 +8,10 @@ fn main() {
         .with_timer(fmt::time::UtcTime::rfc_3339())
         .init();
 
-    let args = Args::parse();
+    let args = tartarfs::cli::Args::parse();
     info!("Archive: {}", args.archive_path);
     info!("Mount: {}", args.mount_path);
 
-    let filesystem = TartarFS::new(args.archive_path);
-
-    let mount_path = Path::new(&args.mount_path);
-    if !mount_path.exists() {
-        std::fs::create_dir_all(mount_path).expect("Failed to create mount directory");
-    }
-
-    let options = vec![MountOption::FSName("tartarfs".into()), MountOption::RO];
-
-    fuser::mount2(filesystem, &mount_path, &options)
-        .unwrap_or_else(|e| panic!("Failed to mount: {}", e));
+    tartarfs::cli::run(args).unwrap_or_else(|e| panic!("failed to mount: {}", e));
 }
+
