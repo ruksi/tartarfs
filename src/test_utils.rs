@@ -10,9 +10,9 @@ use walkdir::WalkDir;
 
 #[allow(dead_code)]
 pub struct TestSetup {
-    test_dir: TempDir,            // the test directory to be archived
-    archive_path: PathBuf,        // the path to the archive to be made
-    pub(crate) mount_path: PathBuf,          // the path to the mount point
+    test_dir: TempDir,     // the test workspace with the archive and mount point
+    archive_path: PathBuf, // the path to the tar archive to test
+    pub(crate) mount_path: PathBuf, // the path to the mount point to test
     mount_handle: JoinHandle<()>, // the handle to wait for the unmounting
 }
 
