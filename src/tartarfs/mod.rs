@@ -32,6 +32,9 @@ impl TartarFS {
             is_dir: true,
             size: 0,
             offset: 0,
+            mode: 0o755,
+            uid: 1000,
+            gid: 1000,
         };
         fs.inode_to_item.insert(root_inode, root_item);
         fs.path_to_inode.insert("".into(), root_inode);
@@ -52,11 +55,18 @@ impl TartarFS {
                             let size = header.size().unwrap_or(0);
                             let is_dir = header.entry_type().is_dir();
                             let offset = entry.raw_file_position();
+                            let mode = header.mode().unwrap_or(if is_dir { 0o755 } else { 0o644 });
+                            let uid = header.uid().unwrap_or(1000);
+                            let gid = header.gid().unwrap_or(1000);
+
                             let item = ArchiveItem {
                                 name: entry_path_text.clone(),
                                 is_dir,
                                 size,
                                 offset,
+                                mode: mode.try_into().unwrap(),
+                                uid: uid.try_into().unwrap(),
+                                gid: gid.try_into().unwrap(),
                             };
 
                             fs.inode_to_item.insert(inode, item);
@@ -76,6 +86,9 @@ impl TartarFS {
                                         is_dir: true,
                                         size: 0,
                                         offset: 0,
+                                        mode: 0o755,
+                                        uid: 1000,
+                                        gid: 1000,
                                     };
 
                                     fs.inode_to_item.insert(parent_ino, parent_item);
@@ -120,5 +133,51 @@ impl Filesystem for TartarFS {
 
     fn access(&mut self, req: &Request, ino: u64, mask: i32, reply: ReplyEmpty) {
         self.access_impl(req, ino, mask, reply);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::TestSetup;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_basics() -> std::io::Result<()> {
+        let source_dir = TempDir::new()?;
+        fs::write(source_dir.path().join("greeting.txt"), "Hello from file!")?;
+        fs::create_dir_all(source_dir.path().join("alphabet"))?;
+        fs::write(source_dir.path().join("alphabet/a.txt"), "Nested content")?;
+        fs::create_dir_all(source_dir.path().join("alphabet/greek"))?;
+        fs::write(source_dir.path().join("alphabet/greek/alpha.txt"), "αααα")?;
+        fs::set_permissions(
+            source_dir.path().join("greeting.txt"),
+            fs::Permissions::from_mode(0o644),
+        )?;
+        fs::set_permissions(
+            source_dir.path().join("alphabet"),
+            fs::Permissions::from_mode(0o755),
+        )?;
+        fs::set_permissions(
+            source_dir.path().join("alphabet/a.txt"),
+            fs::Permissions::from_mode(0o600),
+        )?;
+        fs::set_permissions(
+            source_dir.path().join("alphabet/greek"),
+            fs::Permissions::from_mode(0o750),
+        )?;
+        fs::set_permissions(
+            source_dir.path().join("alphabet/greek/alpha.txt"),
+            fs::Permissions::from_mode(0o644),
+        )?;
+        let mounted = TestSetup::from_dir(source_dir.path())?;
+
+        mounted.assert_is_file("greeting.txt", Some(0o644), Some("Hello from file!"));
+        mounted.assert_is_dir("alphabet", Some(0o755));
+        mounted.assert_is_file("alphabet/a.txt", Some(0o600), Some("Nested content"));
+        mounted.assert_is_dir("alphabet/greek", Some(0o750));
+        mounted.assert_is_file("alphabet/greek/alpha.txt", Some(0o644), Some("αααα"));
+        Ok(())
     }
 }

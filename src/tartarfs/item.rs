@@ -7,6 +7,9 @@ pub struct ArchiveItem {
     pub is_dir: bool,
     pub size: u64,
     pub offset: u64,
+    pub mode: u16,
+    pub uid: u32,
+    pub gid: u32,
 }
 
 impl ArchiveItem {
@@ -26,10 +29,10 @@ impl ArchiveItem {
             ctime: SystemTime::now(),
             crtime: SystemTime::now(),
             kind,
-            perm: if self.is_dir { 0o755 } else { 0o644 },
+            perm: self.mode & 0o777,
             nlink: 1,
-            uid: 1000,
-            gid: 1000,
+            uid: self.uid,
+            gid: self.gid,
             rdev: 0,
             blksize: 512,
             flags: 0,

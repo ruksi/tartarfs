@@ -11,3 +11,7 @@ libc = "0.2"
 tar = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "time"] }
+
+[dev-dependencies]
+tempfile = "3.17"
+walkdir = "2.5"
