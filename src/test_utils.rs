@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 pub struct TestSetup {
     test_dir: TempDir,            // the test directory to be archived
     archive_path: PathBuf,        // the path to the archive to be made
-    mount_path: PathBuf,          // the path to the mount point
+    pub(crate) mount_path: PathBuf,          // the path to the mount point
     mount_handle: JoinHandle<()>, // the handle to wait for the unmounting
 }
 

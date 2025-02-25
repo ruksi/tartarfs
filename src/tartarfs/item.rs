@@ -10,6 +10,9 @@ pub struct ArchiveItem {
     pub mode: u16,
     pub uid: u32,
     pub gid: u32,
+    pub atime: SystemTime,
+    pub mtime: SystemTime,
+    pub ctime: SystemTime,
 }
 
 impl ArchiveItem {
@@ -24,10 +27,10 @@ impl ArchiveItem {
             ino: inode.0,
             size: self.size,
             blocks: 1,
-            atime: SystemTime::now(),
-            mtime: SystemTime::now(),
-            ctime: SystemTime::now(),
-            crtime: SystemTime::now(),
+            atime: self.atime,
+            mtime: self.mtime,
+            ctime: self.ctime,
+            crtime: self.ctime,
             kind,
             perm: self.mode & 0o777,
             nlink: 1,

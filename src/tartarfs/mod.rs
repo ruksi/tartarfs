@@ -7,6 +7,7 @@ use item::ArchiveItem;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 use tar::Archive;
 use tracing::{debug, error, info};
 
@@ -27,6 +28,7 @@ impl TartarFS {
             next_inode: root_inode + 1,
         };
 
+        let now = SystemTime::now();
         let root_item = ArchiveItem {
             name: "".into(),
             is_dir: true,
@@ -35,6 +37,9 @@ impl TartarFS {
             mode: 0o755,
             uid: 1000,
             gid: 1000,
+            atime: now,
+            mtime: now,
+            ctime: now,
         };
         fs.inode_to_item.insert(root_inode, root_item);
         fs.path_to_inode.insert("".into(), root_inode);
@@ -59,6 +64,14 @@ impl TartarFS {
                             let uid = header.uid().unwrap_or(1000);
                             let gid = header.gid().unwrap_or(1000);
 
+                            let mtime = header
+                                .mtime()
+                                .ok()
+                                .and_then(|t| {
+                                    SystemTime::UNIX_EPOCH.checked_add(Duration::from_secs(t))
+                                })
+                                .unwrap_or_else(SystemTime::now);
+
                             let item = ArchiveItem {
                                 name: entry_path_text.clone(),
                                 is_dir,
@@ -67,6 +80,9 @@ impl TartarFS {
                                 mode: mode.try_into().unwrap(),
                                 uid: uid.try_into().unwrap(),
                                 gid: gid.try_into().unwrap(),
+                                atime: mtime, // use mtime for all timestamps since that's what we got
+                                mtime,
+                                ctime: mtime,
                             };
 
                             fs.inode_to_item.insert(inode, item);
@@ -81,6 +97,7 @@ impl TartarFS {
                                     let parent_ino = fs.next_inode;
                                     fs.next_inode += 1;
 
+                                    let now = SystemTime::now();
                                     let parent_item = ArchiveItem {
                                         name: ancestor_text.clone(),
                                         is_dir: true,
@@ -89,6 +106,9 @@ impl TartarFS {
                                         mode: 0o755,
                                         uid: 1000,
                                         gid: 1000,
+                                        atime: now,
+                                        mtime: now,
+                                        ctime: now,
                                     };
 
                                     fs.inode_to_item.insert(parent_ino, parent_item);
@@ -140,7 +160,7 @@ impl Filesystem for TartarFS {
 mod tests {
     use crate::test_utils::TestSetup;
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use tempfile::TempDir;
 
     #[test]
@@ -178,6 +198,17 @@ mod tests {
         mounted.assert_is_file("alphabet/a.txt", Some(0o600), Some("Nested content"));
         mounted.assert_is_dir("alphabet/greek", Some(0o750));
         mounted.assert_is_file("alphabet/greek/alpha.txt", Some(0o644), Some("αααα"));
+
+        // Verify timestamps are preserved
+        let metadata = fs::metadata(source_dir.path().join("greeting.txt"))?;
+        let mounted_metadata = fs::metadata(mounted.mount_path.join("greeting.txt"))?;
+
+        assert_eq!(
+            metadata.mtime(),
+            mounted_metadata.mtime(),
+            "mtime should be preserved"
+        );
+
         Ok(())
     }
 }
